@@ -1,0 +1,16 @@
+x-base:
+  service:  &base-service
+    command: wait_forever
+    environment:
+      LANG: es_ES.UTF-8
+
+services:
+  steamcmd-vitamined:
+    image: "${REGISTRY_URL}/underaft/steamcmd-vitamined:${RELEASE_VERSION:-latest}"
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: steamcmd-vitamined-final
+      args:
+        USER_ID: 1000
+    restart: unless-stopped
