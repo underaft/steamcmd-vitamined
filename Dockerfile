@@ -1,4 +1,4 @@
-FROM steamcmd/steamcmd:debian-bookworm AS steamcmd-vitamined-base
+FROM steamcmd/steamcmd:debian AS steamcmd-vitamined-base
 # Default timezone configuration
 ENV LANG=en_US.UTF-8 \
     TZ=UTC
@@ -12,12 +12,14 @@ ENV PATH="/opt/underaft/bin:$PATH" \
     LC_ALL="${LANG}"
 
 ENV HOME="/home/${USER_NAME}"
-
-RUN apt-get update && \
+RUN dpkg --add-architecture i386 && apt update && \
+    DEBIAN_FRONTEND=noninteractive apt-get upgrade -y && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        python3 python3-pip python3-yaml \
         tzdata locales \
         nano \
-        wget curl unzip jq \
+        wget curl unzip jq rsync \
+        libcurl4-openssl-dev:i386 \
         libgdiplus libsm6 libxext6 \
         net-tools inetutils-ping traceroute \
     && \

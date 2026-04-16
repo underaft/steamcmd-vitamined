@@ -7,7 +7,7 @@
 sync_folders() {
     local src="${1}"
     local dst="${2}"
-
+    local OVERWRITE_SYNC="${3:-false}"
     if [[ -z "${src}" || -z "${dst}" ]]; then
         err "sync_folders: requires <src> and <dst> arguments"
         return 1
@@ -18,15 +18,25 @@ sync_folders() {
         return 0
     fi
 
+    if [[ ! -d "${dst}" ]]; then
+        debug "sync_folders: dest directory not found: ${dst}"
+        return 0
+    fi
+
     create_directories "${dst}"
 
-    # -R: recursive
-    # -p: preserve mode/ownership/timestamps
-    # -u: copy only when source is newer or missing in destination
-    # -f: force overwrite
-    # -v: verbose (optional)
-    cp -aRTf "${src}" "${dst}"
-    debug "Copied ${src} to ${dst}"
+    # Normalize: remove any trailing slashes, then add exactly one.
+    src="${src%/}/"
+    dst="${dst%/}/"
+
+    info "Syncing ${src} into ${dst}"
+
+    if is_true "${OVERWRITE_SYNC:-}"; then
+      rsync -av "${src}" "${dst}"
+    else
+      rsync -av --update "${src}" "${dst}"
+    fi
+
 }
 
 apply_perms() {

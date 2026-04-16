@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 
+# Load Libraries
+. /opt/underaft/lib/log.sh
+
 # Load Env Variables
 . /opt/underaft/lib/glob-env.sh
 
@@ -9,6 +12,11 @@ install_steam_game() {
     shift
   fi
   shift
+  local manifest_file="${install_dir}/steamapps/appmanifest_${app_id}.acf"
+  if [[ -f "${manifest_file}" ]]; then
+    info "Cleaning up ${manifest_file}"
+    rm "${manifest_file}"
+  fi
   steamcmd +force_install_dir "${install_dir}" \
     +login anonymous \
     +app_update "${app_id}" \

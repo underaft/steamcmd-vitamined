@@ -6,12 +6,16 @@
 
 fetch_json() {
     local url="${1}"
-    curl -fsSL "${url}"
+    curl --no-progress-meter -fsSLJ \
+      --retry 3 --retry-delay 10 --retry-all-errors \
+      --connect-timeout 5 --max-time 30 "${url}"
 }
 
 get_remote_filename() {
     local url="${1}"
-    curl -sIL "${url}" | awk -F'filename=' '/filename=/ {
+    curl -sIL \
+      --retry 3 --retry-delay 10 --retry-all-errors \
+      --connect-timeout 5 --max-time 30 "${url}" | awk -F'filename=' '/filename=/ {
         gsub(/[";\r]/, "", $2);
         print $2;
         exit
@@ -23,7 +27,7 @@ download_to_folder() {
   create_directories "${folder}"
   debug "Downloading ${file} into ${folder} from ${url}"
   curl --no-progress-meter -fsSLJ -o "${folder}/${file}" \
-    --retry 3 --retry-delay 1 \
+    --retry 3 --retry-delay 10 --retry-all-errors \
     --connect-timeout 5 --max-time 30 \
     "${url}"
 }
@@ -41,8 +45,8 @@ download_github_asset() {
   release_name=$(jq -r '.name' <<< "${json}")
   published_at=$(jq -r '.published_at' <<< "${json}")
 
+  debug "Downloading ${asset} v${release_name} (${published_at})"
   if download_to_folder "${folder}" "${download_url}" "${asset}"; then
-    echo "${release_name}" "${published_at}"
     return 0
   fi
   return 1

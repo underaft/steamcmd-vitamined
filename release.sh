@@ -52,15 +52,6 @@ maybe_push_tag() {
   fi
 }
 
-resolve_image_name() {
-  local image="${1}"
-  if [[ -n "${REGISTRY}" ]]; then
-    echo "${REGISTRY}/${image}"
-  else
-    echo "${image}"
-  fi
-}
-
 push_images() {
   echo "Pushing ${RELEASE_VERSION}"
   docker compose push
@@ -68,7 +59,7 @@ push_images() {
 
 build() {
   echo "Building ${RELEASE_VERSION}"
-  docker compose build
+  docker compose --progress=plain build
 }
 
 get_current_tag() {
@@ -103,16 +94,25 @@ determine_version() {
   fi
 }
 
+build_and_push() {
+  build
+  printf "Do you want to push the image? [y/N]: "
+  read -r push_image
+  if [[ "${push_image}" =~ ^[Yy]$ ]]; then
+    push_images
+  fi
+}
+
 GIVEN_ARG="${1:-}"
 shift || true
 
 DEFAULT_TAG="0.1.0"
 RELEASE_VERSION="latest"
 
-export REGISTRY_URL="${REGISTRY_URL:-"docker.io"}"
+export REGISTRY_URL="${REGISTRY_URL:-"registry.infra.underaft.dev"}"
 determine_version
 case "${GIVEN_ARG}" in
     build)       build ;;
     push)        push_images ;;
-    *)           build;;
+    *)           build_and_push;;
 esac

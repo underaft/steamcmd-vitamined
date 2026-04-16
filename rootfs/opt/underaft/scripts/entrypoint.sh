@@ -35,5 +35,5 @@ main() {
     exec "${@}"
   fi
 }
-
+export PATH="${UFT_GAME_DIR}/bin:${PATH}"
 main "${@}"
