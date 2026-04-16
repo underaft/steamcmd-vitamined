@@ -2,14 +2,14 @@
 
 ## Project Structure & Module Organization
 - Root assets live in `Dockerfile`, `docker-compose.yaml`, and `release.sh`; images build the `steamcmd-vitamined-final` target from the SteamCMD Debian base.
-- Runtime artifacts reside under `rootfs/opt/underaft/`: `lib/` holds shared bash helpers (logging, env, filesystem, validation), `scripts/` contains `bootstrap.sh` (user/setup) and `entrypoint.sh` (runtime dispatch), and game-specific assets mount into `${UFT_GAME_DIR}` (defaults to `/opt/underaft/server`).
+- Runtime artifacts reside under `rootfs/opt/underaft/`: `lib/` holds shared bash helpers (logging, env, filesystem, validation), `scripts/` contains `bootstrap.sh` (user/setup) and `entrypoint.sh` (runtime dispatch), and runtime expects game-specific files under `${UFT_GAME_DIR}` (defaults to `/opt/underaft/server`); provide these via volume mount at runtime or COPY in a derivative image.
 - Persistent data, backups, logs, and custom overrides are expected under `${HOME}` and `/underaft` at runtime; ensure volumes map these paths when composing services.
 
 ## Build, Test, and Development Commands
-- `docker compose build` — build the image locally (honors `REGISTRY_URL`, `RELEASE_VERSION`, and `USER_ID` build arg).
-- `docker compose up -d` — start the base container; default command `wait_forever` leaves the container idle for interactive debugging.
+- `docker compose build` — build the image locally. Known limitation: when `REGISTRY_URL` is unset, compose may produce an invalid image tag (`/underaft/...`). Set a non-empty `REGISTRY_URL` (example: `REGISTRY_URL=local`) before build/run commands. Only `USER_ID` is passed as a build arg; `REGISTRY_URL` and `RELEASE_VERSION` are used for image tagging, not build args. The Dockerfile uses `ENV USER_ID=1000` rather than `ARG USER_ID`, so the build arg may not affect the image as expected.
+- `docker compose up -d` — NOT RECOMMENDED without explicit command. The x-base anchor defines `wait_forever`, but the service doesn't inherit it. Default startup without `GAME_SERVER_NAME` exits immediately. Use `docker compose run --rm steamcmd-vitamined bash` for interactive debugging instead.
 - `./release.sh build` — helper to build with interactive version bumping; `./release.sh push` pushes built tags with `docker compose push`.
-- Manual smoke: `docker compose run --rm steamcmd-vitamined steamcmd +quit` verifies SteamCMD is reachable in the image.
+- Manual smoke: `REGISTRY_URL=local docker compose run --rm steamcmd-vitamined steamcmd +quit` verifies SteamCMD is reachable in the image.
 
 ## Coding Style & Naming Conventions
 - Shell scripts use `bash`, `set -euo pipefail`, and lowercase snake_case functions (`ensure_user`, `sync_folders`). Keep shebangs and `shellcheck`-friendly patterns.
