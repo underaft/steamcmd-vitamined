@@ -22,7 +22,7 @@ Read the [documentation index](docs/index.md) for the operator path.
 
 - `latest`: integration image published from `next`.
 - `X.Y.Z`: stable image published from a plain semver tag on `main`.
-- Registry: `ghcr.io/underaft/steamcmd-vitamined`.
+- Registry: `ghcr.io/uft-gsc/steamcmd-vitamined`.
 
 ## Development
 

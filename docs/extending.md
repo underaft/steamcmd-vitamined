@@ -16,7 +16,7 @@ Run it with `GAME_SERVER_NAME=<game>`. The runtime then executes the required en
 ## Derived image
 
 ```dockerfile
-FROM ghcr.io/underaft/steamcmd-vitamined:<version>
+FROM ghcr.io/uft-gsc/steamcmd-vitamined:<version>
 COPY game-layer/ /opt/underaft/mygame/
 ENV GAME_SERVER_NAME=mygame
 ```

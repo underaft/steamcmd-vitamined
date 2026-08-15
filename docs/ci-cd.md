@@ -30,7 +30,7 @@ The release helper never pushes. The final two commands are separate so the oper
 - `publish.yml`: publishes `latest` from `next` and semver tags from `main`.
 - `release.yml`: manual, validated tag creation for maintainers or GitHub agents.
 
-Images use `ghcr.io/underaft/steamcmd-vitamined`. Workflows use the repository `GITHUB_TOKEN` with package-write permission and Docker BuildKit's GitHub Actions cache.
+Images use `ghcr.io/uft-gsc/steamcmd-vitamined`. Workflows use the repository `GITHUB_TOKEN` with package-write permission and Docker BuildKit's GitHub Actions cache.
 
 ## Repository settings checklist
 
