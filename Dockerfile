@@ -70,6 +70,6 @@ WORKDIR ${HOME}
 
 ENTRYPOINT ["/opt/underaft/scripts/entrypoint.sh"]
 
-LABEL org.opencontainers.image.source="https://github.com/underaft/steamcmd-vitamined"
+LABEL org.opencontainers.image.source="https://github.com/uft-gsc/steamcmd-vitamined"
 
 FROM steamcmd-vitamined-base AS steamcmd-vitamined-final
