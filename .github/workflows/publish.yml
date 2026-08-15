@@ -83,5 +83,6 @@ jobs:
           push: true
           tags: ${{ steps.tags.outputs.tags }}
           labels: org.opencontainers.image.source=https://github.com/underaft/steamcmd-vitamined
+          provenance: false
           cache-from: type=gha,scope=steamcmd-vitamined
           cache-to: type=gha,scope=steamcmd-vitamined,mode=max
