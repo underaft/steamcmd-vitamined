@@ -1,0 +1,56 @@
+name: Release image
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Plain semver version to release from main, for example 1.2.3.
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  validate:
+    uses: ./.github/workflows/ci.yml
+    permissions:
+      contents: read
+
+  create-tag:
+    needs: validate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out main
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Create release tag
+        env:
+          VERSION: ${{ inputs.version }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          [[ "${REF_NAME}" == main ]]
+          [[ "${VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          if git rev-parse "refs/tags/${VERSION}" >/dev/null 2>&1; then
+            echo "tag already exists: ${VERSION}" >&2
+            exit 1
+          fi
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git tag "${VERSION}"
+          git push origin "${VERSION}"
+
+  publish:
+    needs: create-tag
+    uses: ./.github/workflows/publish.yml
+    with:
+      image_tag: ${{ inputs.version }}
+      skip_validation: true
+    secrets: inherit
+    permissions:
+      contents: read
+      packages: write

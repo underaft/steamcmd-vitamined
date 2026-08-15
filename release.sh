@@ -1,126 +1,130 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-increment_version() {
-  local version="${1}"
-  local part="${2}"
-  IFS='.' read -r major minor patch <<< "${version}"
-  case "${part}" in
-    major) major=$((major + 1)); minor=0; patch=0 ;;
-    minor) minor=$((minor + 1)); patch=0 ;;
-    patch) patch=$((patch + 1)) ;;
-    *) echo "Invalid part to increment: ${part}" >&2; exit 1 ;;
-  esac
-  echo "${major}.${minor}.${patch}"
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "${repo_root}"
+
+if [[ -f .env ]]; then
+  # shellcheck source=/dev/null
+  source .env
+fi
+
+IMAGE_REF="${IMAGE_REF:-steamcmd-vitamined:${RELEASE_VERSION:-latest}}"
+
+usage() {
+  cat <<'EOF'
+Usage:
+  ./release.sh check [--skip-build]
+  ./release.sh build [image-ref]
+  ./release.sh release X.Y.Z
+  ./release.sh version X.Y.Z
+
+The release command validates and builds locally, then creates a local tag.
+It never pushes images or Git refs.
+EOF
 }
 
-ask_increment_type() {
-  echo "Select version increment type:"
-  echo "1) major"
-  echo "2) minor"
-  echo "3) patch"
-  printf "Choice [1-3]: "
-  read -r choice
-  case "${choice}" in
-    1) increment_type="major" ;;
-    2) increment_type="minor" ;;
-    3) increment_type="patch" ;;
-    *) echo "Invalid choice" >&2; exit 1 ;;
-  esac
+validate_version() {
+  local version="${1:-}"
+  [[ "${version}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || {
+    echo "invalid version: ${version}" >&2
+    return 1
+  }
+  printf '%s\n' "${version}"
 }
 
-maybe_tag_version() {
-  local tag="${1}"
+shellcheck_files() {
+  shellcheck -e SC1091 release.sh tests/*.sh rootfs/opt/underaft/lib/*.sh rootfs/opt/underaft/scripts/*.sh
+}
 
-  printf "Do you want to git tag? [y/N]: "
-  read -r do_tag
-  if [[ "${do_tag}" =~ ^[Yy]$ ]]; then
-    git tag "${tag}"
-    echo "Tagged version: ${tag}"
+compose_config() {
+  IMAGE_REF="${IMAGE_REF}" docker compose config --quiet
+}
+
+build_image() {
+  echo "Building ${IMAGE_REF}"
+  IMAGE_REF="${IMAGE_REF}" docker compose --progress=plain build
+}
+
+steamcmd_smoke() {
+  IMAGE_REF="${IMAGE_REF}" docker compose run --rm steamcmd-vitamined steamcmd +quit
+}
+
+runtime_smoke() {
+  local output
+  output="$(IMAGE_REF="${IMAGE_REF}" docker compose run --rm steamcmd-vitamined echo smoke)"
+  [[ "${output}" == *smoke* ]]
+
+  IMAGE_REF="${IMAGE_REF}" docker compose run --rm steamcmd-vitamined >/dev/null
+
+  if IMAGE_REF="${IMAGE_REF}" docker compose run --rm -e GAME_SERVER_NAME=test steamcmd-vitamined >/dev/null 2>&1; then
+    echo "game mode unexpectedly succeeded without an entrypoint" >&2
+    return 1
   fi
 }
 
-maybe_push_tag() {
-  local tag="${1}"
-  printf "Do you want to push the new tag '%s' to origin? [y/N]: " "${tag}"
-  read -r push_choice
-  if [[ "${push_choice}" =~ ^[Yy]$ ]]; then
-    git push origin "${tag}"
-    echo "Tag pushed."
-  else
-    echo "Tag not pushed."
+check() {
+  local skip_build=false
+  if [[ "${1:-}" == "--skip-build" ]]; then
+    skip_build=true
   fi
-}
 
-push_images() {
-  echo "Pushing ${RELEASE_VERSION}"
-  docker compose push
+  echo "Linting shell scripts"
+  shellcheck_files
+  echo "Validating Compose configuration"
+  compose_config
+  if [[ "${skip_build}" == false ]]; then
+    build_image
+  fi
+  echo "Running SteamCMD smoke test"
+  steamcmd_smoke
+  echo "Running runtime smoke tests"
+  runtime_smoke
+  echo "Local validation passed"
 }
 
 build() {
-  echo "Building ${RELEASE_VERSION}"
-  docker compose --progress=plain build
-}
-
-get_current_tag() {
-  git describe --tags --abbrev=0 2>/dev/null || echo "${DEFAULT_TAG}"
-}
-
-# 0 = local, 1 = pipeline
-is_pipeline() {
-  return 1
-}
-
-determine_version() {
-  local new_tag current_tag
-  current_tag="$(get_current_tag)"
-  echo "Current version: ${current_tag}"
-
-  if ! is_pipeline; then
-    printf "Do you want to increment the version? [y/N]: "
-    read -r inc_choice
-    if [[ "${inc_choice}" =~ ^[Yy]$ ]]; then
-      ask_increment_type
-      new_tag=$(increment_version "${current_tag}" "${increment_type}")
-      if [[ "${new_tag}" != "${current_tag}" ]]; then
-        maybe_tag_version "${new_tag}"
-        maybe_push_tag "${new_tag}"
-        export RELEASE_VERSION="${new_tag}"
-        echo "New Version: ${RELEASE_VERSION}"
-      fi
-    fi
-  else
-    export RELEASE_VERSION="${current_tag}"
+  if [[ -n "${1:-}" ]]; then
+    IMAGE_REF="${1}"
   fi
+  build_image
 }
 
-build_and_push() {
-  build
-  printf "Do you want to push the image? [y/N]: "
-  read -r push_image
-  if [[ "${push_image}" =~ ^[Yy]$ ]]; then
-    push_images
+release() {
+  local version image_ref
+  version="$(validate_version "${1:-}")"
+  image_ref="steamcmd-vitamined:${version}"
+  IMAGE_REF="${image_ref}" check
+  if git rev-parse "refs/tags/${version}" >/dev/null 2>&1; then
+    echo "tag already exists: ${version}" >&2
+    return 1
   fi
+  git tag "${version}"
+  echo "Created local tag ${version}; push it manually when ready."
 }
 
-GIVEN_ARG="${1:-}"
-shift || true
-
-DEFAULT_TAG="0.1.0"
-RELEASE_VERSION="latest"
-
-if [[ ! -f ".env" ]]; then
-  echo "Copy .env.example to .env"
-  exit 1
-fi
-
-set -a
-source ".env"
-set +a
-
-determine_version
-case "${GIVEN_ARG}" in
-    build)       build ;;
-    push)        push_images ;;
-    *)           build_and_push;;
+case "${1:-check}" in
+  check)
+    shift || true
+    check "${1:-}"
+    ;;
+  build)
+    shift || true
+    build "${1:-}"
+    ;;
+  release)
+    shift || true
+    release "${1:-}"
+    ;;
+  version)
+    shift || true
+    validate_version "${1:-}"
+    ;;
+  help|-h|--help)
+    usage
+    ;;
+  *)
+    usage >&2
+    exit 2
+    ;;
 esac
