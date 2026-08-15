@@ -109,7 +109,15 @@ shift || true
 DEFAULT_TAG="0.1.0"
 RELEASE_VERSION="latest"
 
-export REGISTRY_URL="${REGISTRY_URL:-"registry.infra.underaft.dev"}"
+if [[ ! -f ".env" ]]; then
+  echo "Copy .env.example to .env"
+  exit 1
+fi
+
+set -a
+source ".env"
+set +a
+
 determine_version
 case "${GIVEN_ARG}" in
     build)       build ;;
